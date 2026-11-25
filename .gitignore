@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+checkpoints/
+data/raw/
+data/sample/
+data/clean/
+data/tokenized/
+*.pkl
+*.pt
+*.log
+Claude outputs/
