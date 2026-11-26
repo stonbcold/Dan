@@ -6,6 +6,23 @@ DIR=/workspace/dan
 CODE_REPO=jaay211/dan
 DATA_REPO=jaay211/dan-pretrain-data
 
+PY=""
+for c in python python3 /venv/main/bin/python /opt/conda/bin/python; do
+    if command -v "$c" >/dev/null 2>&1 && "$c" -c "import torch" >/dev/null 2>&1; then
+        PY=$(command -v "$c")
+        break
+    fi
+done
+if [ -z "$PY" ]; then
+    echo "Aucun Python avec PyTorch trouve. Essaie : ls /venv /opt/conda ; which -a python3"
+    exit 1
+fi
+if ! command -v python >/dev/null 2>&1 || [ "$(command -v python)" != "$PY" ]; then
+    ln -sf "$PY" /usr/local/bin/python
+    hash -r
+fi
+echo "Python utilise : $PY"
+
 python -m pip install -q -U huggingface_hub numpy regex datasets
 hf download "$CODE_REPO" --local-dir "$DIR"
 hf download "$DATA_REPO" --repo-type dataset --local-dir "$DIR/data/tokenized"
