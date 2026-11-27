@@ -8,20 +8,17 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from bpe import BPETokenizer
 from model.model import load_dan
+from sft.chat import encode_chat
 
-SYSTEM = "You are Dan, a small helpful assistant. Answer briefly and honestly."
 
-
-def build_prompt(question, chat):
+def prompt_ids(tok, question, chat):
     if not chat:
-        return question
-    return (f"<|im_start|>system\n{SYSTEM}<|im_end|>\n"
-            f"<|im_start|>user\n{question}<|im_end|>\n"
-            f"<|im_start|>assistant\n")
+        return tok.encode(question)
+    return encode_chat(tok, [{"role": "user", "content": question}], generation=True)[0]
 
 
 def answer(model, tok, question, args):
-    idx = torch.tensor([tok.encode(build_prompt(question, args.chat))], device="cuda")
+    idx = torch.tensor([prompt_ids(tok, question, args.chat)], device="cuda")
     stops = (tok.special["<|endoftext|>"], tok.special["<|im_end|>"])
     with torch.autocast("cuda", dtype=torch.bfloat16):
         ids = model.generate(idx, max_new_tokens=args.max_tokens, temperature=args.temperature,

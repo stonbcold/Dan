@@ -9,3 +9,4 @@ data/tokenized/
 *.pt
 *.log
 Claude outputs/
+data/sft/

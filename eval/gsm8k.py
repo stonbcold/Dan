@@ -10,7 +10,7 @@ from datasets import load_dataset
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from bpe import BPETokenizer
-from eval.ask import build_prompt
+from eval.ask import prompt_ids
 from model.model import load_dan
 
 NUMBER = re.compile(r"-?\d[\d,]*(?:\.\d+)?")
@@ -58,10 +58,10 @@ def main():
     correct, results = 0, []
     for k, ex in enumerate(test, 1):
         if args.chat:
-            prompt = build_prompt(ex["question"], chat=True)
+            ids = prompt_ids(tok, ex["question"], chat=True)
         else:
-            prompt = fewshot + f"Question: {ex['question']}\nAnswer:"
-        idx = torch.tensor([tok.encode(prompt)], device="cuda")
+            ids = tok.encode(fewshot + f"Question: {ex['question']}\nAnswer:")
+        idx = torch.tensor([ids], device="cuda")
         text = ""
         ids = []
         with torch.autocast("cuda", dtype=torch.bfloat16):

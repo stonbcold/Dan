@@ -13,6 +13,6 @@ while true; do
     fi
     hf upload "$CODE_REPO" "checkpoints/$RUN" "checkpoints/$RUN" \
         --include "*.csv" --include "samples.txt" --commit-message "Logs $RUN"
-    [ -f train_dan.log ] && hf upload "$CODE_REPO" train_dan.log "checkpoints/$RUN/train_dan.log"
+    [ -f "train_$RUN.log" ] && hf upload "$CODE_REPO" "train_$RUN.log" "checkpoints/$RUN/train_$RUN.log"
     date
 done

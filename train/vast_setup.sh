@@ -2,6 +2,7 @@
 set -euo pipefail
 
 : "${HF_TOKEN:?Il manque le token. Fais : export HF_TOKEN=hf_xxx}"
+MODE=${1:-pretrain}
 DIR=/workspace/dan
 CODE_REPO=jaay211/dan
 DATA_REPO=jaay211/dan-pretrain-data
@@ -24,8 +25,48 @@ fi
 echo "Python utilise : $PY"
 
 python -m pip install -q -U huggingface_hub numpy regex datasets
-hf download "$CODE_REPO" --local-dir "$DIR"
-hf download "$DATA_REPO" --repo-type dataset --local-dir "$DIR/data/tokenized"
+
+if [ "$MODE" = "sft" ]; then
+    hf download "$CODE_REPO" --local-dir "$DIR" --exclude "checkpoints/sft/*"
+    hf download "$DATA_REPO" --repo-type dataset --local-dir "$DIR/data" --include "sft/*"
+    cd "$DIR"
+    python - <<'EOF'
+import numpy as np, torch
+print(f"torch {torch.__version__} | {torch.cuda.get_device_name(0)} | "
+      f"{torch.cuda.get_device_properties(0).total_memory / 1e9:.0f} Go")
+ck = torch.load("checkpoints/dan/final.pt", map_location="cpu", weights_only=False)
+print(f"final.pt : etape {ck['step']}")
+for s in ["train", "val"]:
+    ids = np.load(f"data/sft/{s}_ids.npy", mmap_mode="r")
+    mask = np.load(f"data/sft/{s}_mask.npy", mmap_mode="r")
+    assert ids.shape == mask.shape, s
+    print(f"{s} : {ids.shape[0]} lignes de {ids.shape[1]} tokens")
+EOF
+    for MB in 8 4 2; do
+        echo "===== Test micro_batch=$MB ====="
+        if python train/sft.py checkpoints/dan/final.pt --out checkpoints/bench --micro_batch "$MB" \
+            --max_steps 15 --eval_every 1000000 --log_every 5 2>&1 | tee bench_$MB.log; then
+            if ! grep -q "Error" bench_$MB.log; then
+                echo "$MB" > micro_batch.txt
+                break
+            fi
+        fi
+    done
+    rm -rf checkpoints/bench
+    MB=$(cat micro_batch.txt)
+    echo
+    echo "micro_batch retenu : $MB"
+    grep "^etape 15" bench_$MB.log || true
+    echo
+    echo "Fine-tuning :"
+    echo "  python train/sft.py checkpoints/dan/final.pt --micro_batch $MB 2>&1 | tee -a train_sft.log; hf upload $CODE_REPO checkpoints/sft checkpoints/sft --include final.pt --include \"*.csv\" --include samples.txt; hf upload $CODE_REPO train_sft.log checkpoints/sft/train_sft.log"
+    echo "Sauvegarde vers Hugging Face :"
+    echo "  nohup bash train/vast_sync.sh sft > sync.log 2>&1 &"
+    exit 0
+fi
+
+hf download "$CODE_REPO" --local-dir "$DIR" --exclude "checkpoints/*"
+hf download "$DATA_REPO" --repo-type dataset --local-dir "$DIR/data/tokenized" --exclude "sft/*"
 cd "$DIR"
 
 python - <<'EOF'
@@ -59,8 +100,8 @@ echo
 echo "micro_batch retenu : $MB"
 grep "^etape 30" bench_$MB.log || true
 echo
-echo "Jour 1 :"
+echo "Pre-entrainement :"
 echo "  tmux new -s dan"
-echo "  python train/train.py --model dan --micro_batch $MB --max_hours 23.5 2>&1 | tee -a train_dan.log"
+echo "  python train/train.py --model dan --micro_batch $MB 2>&1 | tee -a train_dan.log"
 echo "Sauvegarde vers Hugging Face (dans un autre terminal) :"
 echo "  nohup bash train/vast_sync.sh dan > sync.log 2>&1 &"
