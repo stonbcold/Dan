@@ -10,3 +10,6 @@ data/tokenized/
 *.log
 Claude outputs/
 data/sft/
+app/memory.json
+export/
+eval/*.jsonl

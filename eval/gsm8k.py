@@ -79,7 +79,7 @@ def main():
         results.append({"question": ex["question"], "gold": gold, "pred": pred, "ok": ok, "output": text})
         print(f"{k}/{len(test)}  exactitude {correct / k:.1%}", end="\r", flush=True)
 
-    out = ROOT / "eval" / f"gsm8k_{Path(args.ckpt).stem}.jsonl"
+    out = ROOT / "eval" / f"gsm8k_{Path(args.ckpt).parent.name}_{Path(args.ckpt).stem}.jsonl"
     with open(out, "w", encoding="utf-8") as f:
         for r in results:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
